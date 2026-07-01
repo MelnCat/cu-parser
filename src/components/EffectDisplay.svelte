@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { ConstantNode, format, type MathNode, type MathScope } from "mathjs";
-	import type { LiquidEffect } from "../parser/util";
+	import type { LiquidEffect } from "../parser/types";
 	import { math } from "../parser/math";
 	import { formatAssignment, populateMath } from "../parser/format";
 

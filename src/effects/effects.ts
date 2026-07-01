@@ -1,6 +1,6 @@
 import { OperatorNode, type MathNode } from "mathjs";
 import { math } from "../parser/math";
-import type { LiquidEffect } from "../parser/util";
+import type { LiquidEffect } from "../parser/types";
 
 export const summarizeEffects = (effects: { effect: LiquidEffect; ml?: number }[]) => {
 	const result = new Map<string, MathNode>();
@@ -63,15 +63,15 @@ export const summarizeEffects = (effects: { effect: LiquidEffect; ml?: number }[
 
 const isBody = (holder: string) => holder === "body" || holder.endsWith(".body");
 const matchLimb = (holder: string) => {
-	const index = holder.match(/limbs\[\d\]$/)?.[1];
+	const index = holder.match(/limbs\[(\d)\]$/)?.[1];
 	if (index === undefined) return null;
-    return {
-        0: "Head",
-        1: "Upper Torso",
-        2: "Lower Torso",
-        3: "Right Arm",
-        6: "Left Arm",
-        9: "Right Leg",
-        12: "Left Leg"
-    }[index]
+	return {
+		0: "Head",
+		1: "Upper Torso",
+		2: "Lower Torso",
+		3: "Right Arm",
+		6: "Left Arm",
+		9: "Right Leg",
+		12: "Left Leg",
+	}[index];
 };

@@ -12,7 +12,6 @@ import {
 	type MathScope,
 } from "mathjs";
 import { math } from "./math";
-import type { LiquidEffect } from "./util";
 
 const mappings = {
 	[`body.HoldingItem(body.handSlot) and body.GetItem(body.handSlot).id == "filterstraw"`]: "[Using filter straw]",

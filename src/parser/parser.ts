@@ -1,10 +1,11 @@
-import { Language, Node, Parser, Query, Tree } from "web-tree-sitter";
-import { analyzeBlock, queryRoot, type LiquidData, type LiquidEffect } from "./util";
-import { ConstantNode, efimovFactor, isConstantNode, type MathNode } from "mathjs";
-import { math, toMath } from "./math";
+import type { Node } from "web-tree-sitter";
+import { Query } from "web-tree-sitter";
+import { analyzeBlock } from "./analyze";
+import type { LiquidData, LiquidEffect } from "./types";
 import { CSharp, parser } from "./treeSitter";
-import { format, formatAssignment } from "./format";
 import liquidsCs from "../assets/Liquids.cs?raw";
+
+const getBlock = (node: Node) => node.children.find(x => x.type === "block")!;
 
 const tree = parser.parse(liquidsCs)!;
 
@@ -82,21 +83,15 @@ for (const [liquid, properties] of rawLiquidProperties) {
 		.map(x => (colorClass === "Color" ? Math.round(+x.replace("f", "") * 255) : x))
 		.map(x => (x === "byte.MaxValue" ? 255 : +x));
 
-	const injectionSickness = +properties.injectionSickness!.text.replace("f", "");
+	const injectionSickness = +(properties.injectionSickness?.text.replace("f", "") ?? 1);
 
 	let drinkEffects: LiquidEffect[] = [];
 	let injectEffects: LiquidEffect[] = [];
 	if (properties.onDrink) {
-		drinkEffects = analyzeBlock(properties.onDrink.children.find(x => x.type === "block")!, liquid, stuffToCheck, {}, classMethods);
+		drinkEffects = analyzeBlock(getBlock(properties.onDrink), liquid, stuffToCheck, {}, classMethods);
 	}
 	if (properties.onHealthUse) {
-		injectEffects = analyzeBlock(
-			properties.onHealthUse.children.find(x => x.type === "block")!,
-			liquid,
-			stuffToCheck,
-			{},
-			classMethods,
-		);
+		injectEffects = analyzeBlock(getBlock(properties.onHealthUse), liquid, stuffToCheck, {}, classMethods);
 	}
 	liquidData.set(liquid, {
 		color: color.slice(0, 3) as [number, number, number],
@@ -106,6 +101,6 @@ for (const [liquid, properties] of rawLiquidProperties) {
 			.join("")}`,
 		drinkEffects,
 		injectEffects,
-        injectionSickness
+		injectionSickness,
 	});
 }

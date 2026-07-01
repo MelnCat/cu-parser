@@ -1,10 +1,9 @@
 <script lang="ts">
 	import { SvelteMap } from "svelte/reactivity";
-	import EffectDisplay from "../../components/EffectDisplay.svelte";
 	import { liquidData } from "../../parser/parser";
-	import type { LiquidEffect } from "../../parser/util";
-	import { all, FunctionNode, OperatorNode } from "mathjs";
-	import { format, formatAssignment, populateMath } from "../../parser/format";
+	import type { LiquidEffect } from "../../parser/types";
+	import { FunctionNode, OperatorNode } from "mathjs";
+	import { format } from "../../parser/format";
 	import { summarizeEffects } from "../../effects/effects";
 
 	const MAX_VOLUME = 10000;

@@ -1,9 +1,6 @@
 <script lang="ts">
-	import EffectDisplay from "../components/EffectDisplay.svelte";
 	import { summarizeEffects } from "../effects/effects";
 	import { liquidData } from "../parser/parser";
-	import { math } from "../parser/math";
-	import { form } from "$app/server";
 	import { format } from "../parser/format";
 	import { FunctionNode } from "mathjs";
 
@@ -35,9 +32,6 @@
 			<div class="effects">
 				<h2 class="sub-label">Drink Effects</h2>
 				<div class="effect-list">
-					<!-- {#each data.drinkEffects as effect}
-						<EffectDisplay {effect} variables={{ ml }} evaluate={false} />
-					{/each} -->
 					{#each drinkEffects.effects as [key, value]}
 						<div>{key}: {format(value)}</div>
 					{/each}

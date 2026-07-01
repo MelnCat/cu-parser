@@ -1,6 +1,6 @@
 import { type MathNode, SymbolNode, ConstantNode, OperatorNode, create, all, FunctionNode, type MathScope } from "mathjs";
 import { type Node } from "web-tree-sitter";
-import { findIdentifier } from "./util.js";
+import { findIdentifier } from "./query.js";
 
 export const math = create(all!);
 
