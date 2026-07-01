@@ -53,7 +53,7 @@ const query = new Query(CSharp, queryString);
 
 const matches = query.matches(tree.rootNode);
 
-const liquidsRegistry = new Map<string, RawLiquidProperties>();
+const rawLiquidProperties = new Map<string, RawLiquidProperties>();
 
 for (const match of matches) {
 	const captures = Object.fromEntries(match.captures.map(x => [x.name, x.node]));
@@ -67,20 +67,22 @@ for (const match of matches) {
 	const liquidId = liquidIdNode.text.match(/"(.+)"/)![1]!;
 	if (!liquidId) throw new Error(`fuck 2`);
 
-	liquidsRegistry.getOrInsert(liquidId, {} as RawLiquidProperties)[propKeyNode.text as keyof RawLiquidProperties] = propValueNode;
+	rawLiquidProperties.getOrInsert(liquidId, {} as RawLiquidProperties)[propKeyNode.text as keyof RawLiquidProperties] = propValueNode;
 }
 
 export const liquidData = new Map<string, LiquidData>();
 
 const stuffToCheck: string[] = [];
 
-for (const [liquid, properties] of liquidsRegistry) {
+for (const [liquid, properties] of rawLiquidProperties) {
 	const colorClass = properties.color!.childForFieldName("type")!.text;
 	const colorArguments = properties.color.childForFieldName("arguments")!.namedChildren!.map(x => x.text);
 	// [r, g, b, a]
 	const color = colorArguments
 		.map(x => (colorClass === "Color" ? Math.round(+x.replace("f", "") * 255) : x))
 		.map(x => (x === "byte.MaxValue" ? 255 : +x));
+
+	const injectionSickness = +properties.injectionSickness!.text.replace("f", "");
 
 	let drinkEffects: LiquidEffect[] = [];
 	let injectEffects: LiquidEffect[] = [];
@@ -98,67 +100,12 @@ for (const [liquid, properties] of liquidsRegistry) {
 	}
 	liquidData.set(liquid, {
 		color: color.slice(0, 3) as [number, number, number],
-        hexColor: `#${color.slice(0, 3).map(x => x.toString(16).padStart(2, "0")).join("")}`,
+		hexColor: `#${color
+			.slice(0, 3)
+			.map(x => x.toString(16).padStart(2, "0"))
+			.join("")}`,
 		drinkEffects,
 		injectEffects,
+        injectionSickness
 	});
 }
-
-const scope = { ml: 100 };
-const evaluate = true;
-
-const logEffects = (effects: LiquidEffect[]) => {
-	const populateMath = (node: MathNode) => {
-		try {
-			return (evaluate ? new ConstantNode(node.evaluate(scope)) : math.simplify(math.resolve(node, scope), {}, { exactFractions: false }));
-		} catch {
-			return math.simplify(math.resolve(node, scope), {}, { exactFractions: false });
-		}
-	};
-	for (const effect of effects) {
-		if (effect.type === "assignment") {
-			const amount = populateMath(effect.expression);
-			if (effect.holder === "body" || effect.holder === "limb.body") {
-				const property =
-					{
-						happiness: "Happiness",
-						sicknessAmount: "Sickness",
-						temperature: "Temperature",
-						septicShock: "Sepsis",
-					}[effect.field] ?? effect.field;
-				console.log(`   ${property}: ${formatAssignment(amount, effect.operator)}`);
-			} else console.log(`   ${effect.holder}->${effect.field} ${effect.operator} ${formatAssignment(amount, effect.operator)}`);
-		}
-		if (effect.type === "method_call") {
-			if (effect.holder === "body.talker") continue;
-			const amounts = effect.arguments.map(x => populateMath(x));
-			if (effect.holder === "body" || effect.holder === "limb.body") {
-				if (effect.method === "Eat") {
-					console.log(`   Hunger: ${format(amounts[0]!)}`);
-					console.log(`   Weight: ${format(amounts[1]!)}`);
-					continue;
-				}
-				const property =
-					{
-						Drink: "Thirst",
-					}[effect.method] ?? effect.method;
-				console.log(`   ${property}: ${format(amounts[0] ?? new ConstantNode(0))}`);
-			} else console.log(`   ${effect.holder}->${effect.method} : ${amounts.join(" | ")}`);
-		}
-		if (effect.timer) console.log(`   ^ [Timer: Repeated ${populateMath(effect.timer)} times]`);
-		if (effect.condition) console.log(`   ^ [Condition: ${format(math.simplify(effect.condition))}]`);
-	}
-};
-
-// for (const [liquid, { drinkEffects, injectEffects, color }] of liquidData) {
-// 	console.log(
-// 		`\x1b[48;2;${color[0]};${color[1]};${color[2]}m--- ${liquid} (per 100mL) ---\x1b[48;2;${Math.floor(color[0] * 0.8)};${Math.floor(color[1] * 0.8)};${Math.floor(color[2] * 0.8)}m`,
-// 	);
-// 	console.log("   [DRINKING]");
-// 	logEffects(drinkEffects);
-// 	if (injectEffects.length) {
-// 		console.log("   [INJECTING]");
-// 		logEffects(injectEffects);
-// 	}
-// 	process.stdout.write(`\x1b[0m`);
-// }

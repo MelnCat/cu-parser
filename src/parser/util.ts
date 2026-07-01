@@ -35,6 +35,7 @@ export interface LiquidData {
     hexColor: string;
 	drinkEffects: LiquidEffect[];
 	injectEffects: LiquidEffect[];
+    injectionSickness: number;
 }
 
 const cachedQueries: Record<string, Query> = {};

@@ -32,7 +32,7 @@ export const format = (node: MathNode): string => {
 	const str = node.toString();
 	if (str in mappings) return mappings[str as keyof typeof mappings];
 	if (isOperatorNode(node)) {
-		if (node.isUnary()) return `${node.op} ${format(node.args[0]!)}`;
+		if (node.isUnary()) return `${node.op}${format(node.args[0]!)}`;
 		return `${node.args.map(x => format(x)).join(` ${node.op} `)}`;
 	}
 	if (isSymbolNode(node)) {

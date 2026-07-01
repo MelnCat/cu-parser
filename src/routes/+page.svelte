@@ -1,21 +1,57 @@
 <script lang="ts">
 	import EffectDisplay from "../components/EffectDisplay.svelte";
+	import { summarizeEffects } from "../effects/effects";
 	import { liquidData } from "../parser/parser";
+	import { math } from "../parser/math";
+	import { form } from "$app/server";
+	import { format } from "../parser/format";
+	import { FunctionNode } from "mathjs";
 
 	let ml = $state(100);
+
+	const mappedLiquids = $derived(
+		liquidData
+			.entries()
+			.map(([l, data]) => {
+				return {
+					liquid: l,
+					data,
+					drinkEffects: summarizeEffects(data.drinkEffects.map(x => ({ effect: x, ml }))),
+					injectEffects: data.injectEffects && summarizeEffects(data.injectEffects.map(x => ({ effect: x, ml }))),
+				};
+			})
+			.toArray(),
+	);
 </script>
 
-<input bind:value={ml} />
+<div class="input">
+	<input type="number" bind:value={ml} />
+</div>
 
 <div class="liquids">
-	{#each liquidData as [liquid, data]}
+	{#each mappedLiquids as { liquid, data, drinkEffects, injectEffects }}
 		<div class="liquid" style:--color={`#${data.color.map(x => x.toString(16).padStart(2, "0")).join("")}`}>
 			<h1 class="label">{liquid}</h1>
 			<div class="effects">
 				<h2 class="sub-label">Drink Effects</h2>
 				<div class="effect-list">
-					{#each data.drinkEffects as effect}
+					<!-- {#each data.drinkEffects as effect}
 						<EffectDisplay {effect} variables={{ ml }} evaluate={false} />
+					{/each} -->
+					{#each drinkEffects.effects as [key, value]}
+						<div>{key}: {format(value)}</div>
+					{/each}
+					{#each drinkEffects.conditional as { key, value, condition }}
+						<div>{key}: {format(value)}</div>
+						<div class="condition">Condition: {format(condition)}</div>
+					{/each}
+					{#each drinkEffects.timer as { key, value, timer, condition }}
+						{@const duration = new FunctionNode("ceil", [timer])}
+						<div>{key}: {format(value)} / s</div>
+						{#if condition}
+							<div class="condition">Condition: {format(condition)}</div>
+						{/if}
+						<div class="condition">Duration: {format(duration)}s</div>
 					{/each}
 				</div>
 			</div>
@@ -24,6 +60,15 @@
 </div>
 
 <style>
+	.input {
+		position: sticky;
+		top: 0;
+		left: 0;
+	}
+	.condition {
+		font-size: 0.8em;
+		margin-left: 1em;
+	}
 	.liquids {
 		display: flex;
 		margin: 1em;
