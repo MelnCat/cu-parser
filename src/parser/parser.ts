@@ -98,7 +98,7 @@ for (const [liquid, properties] of liquidsRegistry) {
 	}
 	liquidData.set(liquid, {
 		color: color.slice(0, 3) as [number, number, number],
-        hexColor: `#${color.slice(0, 3).map(x => x.toString(16).padStart(2, "0"))}`,
+        hexColor: `#${color.slice(0, 3).map(x => x.toString(16).padStart(2, "0")).join("")}`,
 		drinkEffects,
 		injectEffects,
 	});

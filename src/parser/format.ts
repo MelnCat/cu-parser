@@ -9,8 +9,10 @@ import {
 	OperatorNode,
 	SymbolNode,
 	type MathNode,
+	type MathScope,
 } from "mathjs";
 import { math } from "./math";
+import type { LiquidEffect } from "./util";
 
 const mappings = {
 	[`body.HoldingItem(body.handSlot) and body.GetItem(body.handSlot).id == "filterstraw"`]: "[Using filter straw]",
@@ -22,7 +24,7 @@ export const formatAssignment = (node: MathNode, op: string) => {
 		return `+ ${format(node)}`;
 	} else if (op === "-=") {
 		return format(new OperatorNode("-", "unaryMinus", [node]));
-	} else return `${op} ${format(node)}`
+	} else return `${op} ${format(node)}`;
 };
 
 export const format = (node: MathNode): string => {
@@ -40,11 +42,21 @@ export const format = (node: MathNode): string => {
 		return `${node.fn.name}(${node.args.map(x => format(x)).join(", ")})`;
 	}
 	if (isConstantNode(node)) {
-        if (typeof node.value === "number") return `${+node.value.toFixed(4)}`
+		if (typeof node.value === "number") return `${+node.value.toFixed(4)}`;
 		return `${node.value}`;
 	}
 	if (isArrayNode(node)) {
-		return node.items.map(x => format(x)).join("-")
+		return `[${node.items.map(x => format(x)).join("-")}]`;
 	}
 	return `??? ${node.type}`;
+};
+
+export const populateMath = (node: MathNode, variables: MathScope, evaluate: boolean) => {
+	try {
+		return evaluate
+			? new ConstantNode(node.evaluate(variables))
+			: math.simplify(math.resolve(node, variables), {}, { exactFractions: false });
+	} catch {
+		return math.simplify(math.resolve(node, variables), {}, { exactFractions: false });
+	}
 };

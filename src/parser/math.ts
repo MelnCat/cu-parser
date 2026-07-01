@@ -1,4 +1,4 @@
-import { type MathNode, SymbolNode, ConstantNode, OperatorNode, create, all, FunctionNode } from "mathjs";
+import { type MathNode, SymbolNode, ConstantNode, OperatorNode, create, all, FunctionNode, type MathScope } from "mathjs";
 import { type Node } from "web-tree-sitter";
 import { findIdentifier } from "./util.js";
 

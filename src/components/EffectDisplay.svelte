@@ -2,23 +2,14 @@
 	import { ConstantNode, format, type MathNode, type MathScope } from "mathjs";
 	import type { LiquidEffect } from "../parser/util";
 	import { math } from "../parser/math";
-	import { formatAssignment } from "../parser/format";
+	import { formatAssignment, populateMath } from "../parser/format";
 
 	const { effect, variables, evaluate }: { effect: LiquidEffect; variables: MathScope; evaluate: boolean } = $props();
 
-	const populateMath = (node: MathNode) => {
-		try {
-			return evaluate
-				? new ConstantNode(node.evaluate(variables))
-				: math.simplify(math.resolve(node, variables), {}, { exactFractions: false });
-		} catch {
-			return math.simplify(math.resolve(node, variables), {}, { exactFractions: false });
-		}
-	};
 
 	const display = $derived.by(() => {
 		if (effect.type === "assignment") {
-			const amount = populateMath(effect.expression);
+			const amount = populateMath(effect.expression, variables, evaluate);
 			if (effect.holder === "body" || effect.holder === "limb.body") {
 				const property =
 					{
@@ -33,7 +24,7 @@
 		}
 		if (effect.type === "method_call") {
 			if (effect.holder === "body.talker") return;
-			const amounts = effect.arguments.map(x => populateMath(x));
+			const amounts = effect.arguments.map(x => populateMath(x, variables, evaluate));
 			if (effect.holder === "body" || effect.holder === "limb.body") {
 				if (effect.method === "Eat") {
 					console.log(`   Hunger: ${format(amounts[0]!)}`);
@@ -47,7 +38,7 @@
 				console.log(`   ${property}: ${format(amounts[0] ?? new ConstantNode(0))}`);
 			} else console.log(`   ${effect.holder}->${effect.method} : ${amounts.join(" | ")}`);
 		}
-		if (effect.timer) console.log(`   ^ [Timer: Repeated ${populateMath(effect.timer)} times]`);
+		if (effect.timer) console.log(`   ^ [Timer: Repeated ${populateMath(effect.timer, variables, evaluate)} times]`);
 		if (effect.condition) console.log(`   ^ [Condition: ${format(math.simplify(effect.condition))}]`);
 	});
 </script>
