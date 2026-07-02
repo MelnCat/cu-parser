@@ -2,63 +2,89 @@ import { OperatorNode, type MathNode } from "mathjs";
 import { math } from "../parser/math";
 import type { LiquidEffect } from "../parser/types";
 
-export const summarizeEffects = (effects: { effect: LiquidEffect; ml?: number }[]) => {
-	const result = new Map<string, MathNode>();
-	const conditional: { key: string; value: MathNode; condition: MathNode }[] = [];
-	const timer: { key: string; value: MathNode; timer: MathNode; condition?: MathNode }[] = [];
-	const upsertEffect = (effect: LiquidEffect, key: string, amount: MathNode, ml?: number) => {
-		const scope = ml === undefined ? {} : { ml };
-		if (effect.timer) {
-			timer.push({
-				key,
-				value: math.resolve(amount, scope),
-				timer: math.resolve(effect.timer, scope),
-				condition: effect.condition && math.resolve(effect.condition, scope),
-			});
-		} else if (effect.condition && effect.condition.toString() !== "body.TryGetComponent<Painkillers>(component)") {
-			conditional.push({ key, value: math.resolve(amount, scope), condition: math.resolve(effect.condition, scope) });
-		} else {
-			if (result.has(key)) {
-				result.set(key, new OperatorNode("+", "add", [result.get(key)!, math.resolve(amount, scope)]));
-			} else {
-				result.set(key, math.resolve(amount, scope));
-			}
-		}
-	};
+export interface SummarizedEffect {
+	key: string;
+	field: string;
+	holder?: string;
+	value: MathNode;
+}
+export interface Summary {
+	effects: SummarizedEffect[];
+	conditional: (SummarizedEffect & { condition: MathNode })[];
+	timer: (SummarizedEffect & { condition?: MathNode; timer: MathNode })[];
+}
+
+export const summarizeEffects = (effects: { effect: LiquidEffect; ml?: number }[]): Summary => {
+	const result = new Map<string, SummarizedEffect>();
+	const conditional: (SummarizedEffect & { condition: MathNode })[] = [];
+	const timer: (SummarizedEffect & { condition?: MathNode; timer: MathNode })[] = [];
 
 	for (const { effect, ml } of effects) {
+		const upsertEffect = (key: string, amount: MathNode, field: string, holder?: string) => {
+			const scope = ml === undefined ? {} : { ml };
+			if (effect.timer) {
+				timer.push({
+					key,
+					value: math.resolve(amount, scope),
+					timer: math.resolve(effect.timer, scope),
+					condition: effect.condition && math.resolve(effect.condition, scope),
+					field,
+					holder,
+				});
+			} else if (effect.condition && effect.condition.toString() !== "body.TryGetComponent<Painkillers>(component)") {
+				conditional.push({
+					key,
+					field,
+					holder,
+					value: math.resolve(amount, scope),
+					condition: math.resolve(effect.condition, scope),
+				});
+			} else {
+				if (result.has(key)) {
+					result.set(key, {
+						key,
+						field,
+						holder,
+						value: new OperatorNode("+", "add", [result.get(key)!.value, math.resolve(amount, scope)]),
+					});
+				} else {
+					result.set(key, { key, field, holder, value: math.resolve(amount, scope) });
+				}
+			}
+		};
 		if (effect.type === "assignment") {
+			const key = `${effect.holder}.${effect.field}`;
 			if (effect.operator !== "+=" && effect.operator !== "-=") {
 				console.log(effect.operator, effect.field);
 				continue;
 			}
 			const computed = effect.operator === "-=" ? new OperatorNode("-", "unaryMinus", [effect.expression]) : effect.expression;
-            const limb = matchLimb(effect.holder);
+			const limb = matchLimb(effect.holder);
 			if (
 				isBody(effect.holder) ||
 				effect.holder === "limb.body.GetOrAddComponent<Painkillers>()" ||
 				effect.field === "antagonistAmount" ||
-				effect.field === "opiateTolerance"
+				effect.field === "opiateTolerance" ||
+                effect.field === "opiateAmount"
 			) {
-				upsertEffect(effect, effect.field, computed, ml);
+				upsertEffect(effect.field, computed, effect.field, effect.holder);
 				// temperature, happiness, sicknessAmount
 			} else if (limb) {
-                upsertEffect(effect, `${limb}.${effect.field}`, computed, ml)
-            } else {
+				upsertEffect(key, computed, effect.field, effect.holder);
+			} else {
 				console.log(`unknown effect assignment ${effect.holder} ${effect.field}`);
 			}
-            
 		} else if (effect.type === "method_call") {
 			if (effect.method === "Drink") {
-				upsertEffect(effect, "thirst", effect.arguments[0], ml);
+				upsertEffect("thirst", effect.arguments[0], "thirst");
 			}
 			if (effect.method === "Eat") {
-				upsertEffect(effect, "hunger", effect.arguments[0], ml);
-				upsertEffect(effect, "weightOffset", effect.arguments[1], ml);
+				upsertEffect("hunger", effect.arguments[0], "hunger");
+				upsertEffect("weightOffset", effect.arguments[1], "weightOffset");
 			}
 		}
 	}
-	return { effects: result, conditional, timer };
+	return { effects: result.values().toArray(), conditional, timer };
 };
 
 const isBody = (holder: string) => holder === "body" || holder.endsWith(".body");

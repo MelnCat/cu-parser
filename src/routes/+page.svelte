@@ -5,6 +5,7 @@
 	import { FunctionNode } from "mathjs";
 
 	let ml = $state(100);
+    let useMl = $state(true)
 
 	const mappedLiquids = $derived(
 		liquidData
@@ -13,8 +14,8 @@
 				return {
 					liquid: l,
 					data,
-					drinkEffects: summarizeEffects(data.drinkEffects.map(x => ({ effect: x, ml }))),
-					injectEffects: data.injectEffects && summarizeEffects(data.injectEffects.map(x => ({ effect: x, ml }))),
+					drinkEffects: summarizeEffects(data.drinkEffects.map(x => ({ effect: x, ml: useMl ? ml : undefined }))),
+					injectEffects: data.injectEffects && summarizeEffects(data.injectEffects.map(x => ({ effect: x, ml: useMl ? ml : undefined }))),
 				};
 			})
 			.toArray(),
@@ -23,6 +24,7 @@
 
 <div class="input">
 	<input type="number" bind:value={ml} />
+	<input type="checkbox" bind:checked={useMl} />
 </div>
 
 <div class="liquids">
@@ -32,7 +34,7 @@
 			<div class="effects">
 				<h2 class="sub-label">Drink Effects</h2>
 				<div class="effect-list">
-					{#each drinkEffects.effects as [key, value]}
+					{#each drinkEffects.effects as { key, value }}
 						<div>{key}: {format(value)}</div>
 					{/each}
 					{#each drinkEffects.conditional as { key, value, condition }}

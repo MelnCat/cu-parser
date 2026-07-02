@@ -77,7 +77,7 @@
 	</div>
 	<div class="right-panel">
 		<div class="effect-list">
-			{#each summary.effects as [key, value]}
+			{#each summary.effects as { key, value }}
 				<div class="effect">
 					{key}: {format(value)}
 				</div>
@@ -113,7 +113,7 @@
 		button {
 			border-radius: 0;
 			padding: 0.1em 0.4em;
-            border-width: 1px;
+			border-width: 1px;
 		}
 	}
 	.liquid-contents {

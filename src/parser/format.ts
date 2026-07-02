@@ -16,6 +16,9 @@ import { math } from "./math";
 const mappings = {
 	[`body.HoldingItem(body.handSlot) and body.GetItem(body.handSlot).id == "filterstraw"`]: "[Using filter straw]",
 	"body.GetComponent<MindwipeScript>()": "[Mindwiped]",
+	"body.alive": "[Alive]",
+	"body.clawRegrowTime": "[Keratin Booster Duration]",
+	[`CoUtils.instance.DurationOf("antirad")`]: "[Antirad Duration]",
 };
 
 export const formatAssignment = (node: MathNode, op: string) => {
@@ -32,6 +35,18 @@ export const format = (node: MathNode): string => {
 	if (str in mappings) return mappings[str as keyof typeof mappings];
 	if (isOperatorNode(node)) {
 		if (node.isUnary()) return `${node.op}${format(node.args[0]!)}`;
+		if (node.args.some(x => x.toString() === "Random.value")) {
+			const left = node.args[0].toString() === "Random.value";
+			const chance = new OperatorNode("*", "multiply", [left ? node.args[1] : node.args[0], new ConstantNode(100)]);
+			const invChance = new OperatorNode("-", "subtract", [new ConstantNode(100), chance]);
+			if ((left && node.op === "<") || (!left && node.op === ">")) {
+				return `[${format(chance)}% Chance]`;
+			}
+			if ((left && node.op === ">") || (!left && node.op === "<")) {
+				return `[${format(invChance)}% Chance]`;
+			}
+		}
+
 		return `${node.args.map(x => format(x)).join(` ${node.op} `)}`;
 	}
 	if (isSymbolNode(node)) {
