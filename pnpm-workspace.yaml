@@ -1,3 +1,5 @@
+allowBuilds:
+  tree-sitter-c-sharp: true
 onlyBuiltDependencies:
   - esbuild
   - tree-sitter-c-sharp

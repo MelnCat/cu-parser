@@ -1,17 +1,23 @@
-import { OperatorNode, type MathNode } from "mathjs";
+import { ConstantNode, OperatorNode, type MathNode } from "mathjs";
 import { math } from "../parser/math";
 import type { LiquidEffect } from "../parser/types";
+
+export interface EffectOperation {
+	type: "add" | "multiply" | "set";
+	value: MathNode;
+}
 
 export interface SummarizedEffect {
 	key: string;
 	field: string;
 	holder?: string;
-	value: MathNode;
+	operations: EffectOperation[];
 }
 export interface Summary {
 	effects: SummarizedEffect[];
 	conditional: (SummarizedEffect & { condition: MathNode })[];
 	timer: (SummarizedEffect & { condition?: MathNode; timer: MathNode })[];
+	length: number;
 }
 
 export const summarizeEffects = (effects: { effect: LiquidEffect; ml?: number }[]): Summary => {
@@ -20,12 +26,28 @@ export const summarizeEffects = (effects: { effect: LiquidEffect; ml?: number }[
 	const timer: (SummarizedEffect & { condition?: MathNode; timer: MathNode })[] = [];
 
 	for (const { effect, ml } of effects) {
-		const upsertEffect = (key: string, amount: MathNode, field: string, holder?: string) => {
+		const upsertEffect = (key: string, operation: string, amount: MathNode, field: string, holder?: string) => {
+			const type =
+				operation === "+=" || operation === "-="
+					? "add"
+					: operation === "*=" || operation === "/="
+						? "multiply"
+						: operation === "="
+							? "set"
+							: "???";
+			if (type === "???") throw new Error("??");
+			const rawValue =
+				operation === "-="
+					? new OperatorNode("-", "unaryMinus", [amount])
+					: operation === "/="
+						? new OperatorNode("/", "divide", [new ConstantNode(1), amount])
+						: amount;
 			const scope = ml === undefined ? {} : { ml };
+			const value = math.resolve(rawValue, scope);
 			if (effect.timer) {
 				timer.push({
 					key,
-					value: math.resolve(amount, scope),
+					operations: [{ type, value }],
 					timer: math.resolve(effect.timer, scope),
 					condition: effect.condition && math.resolve(effect.condition, scope),
 					field,
@@ -36,28 +58,35 @@ export const summarizeEffects = (effects: { effect: LiquidEffect; ml?: number }[
 					key,
 					field,
 					holder,
-					value: math.resolve(amount, scope),
+					operations: [{ type, value }],
 					condition: math.resolve(effect.condition, scope),
 				});
 			} else {
 				if (result.has(key)) {
-					result.set(key, {
-						key,
-						field,
-						holder,
-						value: new OperatorNode("+", "add", [result.get(key)!.value, math.resolve(amount, scope)]),
-					});
+					const found = result.get("key")!;
+					const last = found.operations.at(-1)!;
+					if (last.type === type) {
+						if (type === "add") {
+							last.value = new OperatorNode("+", "add", [last.value, value]);
+						} else if (type === "multiply") {
+							last.value = new OperatorNode("*", "multiply", [last.value, value]);
+						} else if (type === "set") {
+							last.value = value;
+						}
+					} else {
+						if (last.type === "set") {
+							found.operations = [{ type, value }];
+						} else {
+							found.operations.push({ type, value });
+						}
+					}
 				} else {
-					result.set(key, { key, field, holder, value: math.resolve(amount, scope) });
+					result.set(key, { key, field, holder, operations: [{ type, value }] });
 				}
 			}
 		};
 		if (effect.type === "assignment") {
 			const key = `${effect.holder}.${effect.field}`;
-			if (effect.operator !== "+=" && effect.operator !== "-=") {
-				console.log(effect.operator, effect.field);
-				continue;
-			}
 			const computed = effect.operator === "-=" ? new OperatorNode("-", "unaryMinus", [effect.expression]) : effect.expression;
 			const limb = matchLimb(effect.holder);
 			if (
@@ -65,26 +94,26 @@ export const summarizeEffects = (effects: { effect: LiquidEffect; ml?: number }[
 				effect.holder === "limb.body.GetOrAddComponent<Painkillers>()" ||
 				effect.field === "antagonistAmount" ||
 				effect.field === "opiateTolerance" ||
-                effect.field === "opiateAmount"
+				effect.field === "opiateAmount"
 			) {
-				upsertEffect(effect.field, computed, effect.field, effect.holder);
+				upsertEffect(effect.field, effect.operator, computed, effect.field, effect.holder);
 				// temperature, happiness, sicknessAmount
 			} else if (limb) {
-				upsertEffect(key, computed, effect.field, effect.holder);
+				upsertEffect(key, effect.operator, computed, effect.field, effect.holder);
 			} else {
 				console.log(`unknown effect assignment ${effect.holder} ${effect.field}`);
 			}
 		} else if (effect.type === "method_call") {
 			if (effect.method === "Drink") {
-				upsertEffect("thirst", effect.arguments[0], "thirst");
+				upsertEffect("thirst", "+=", effect.arguments[0], "thirst");
 			}
 			if (effect.method === "Eat") {
-				upsertEffect("hunger", effect.arguments[0], "hunger");
-				upsertEffect("weightOffset", effect.arguments[1], "weightOffset");
+				upsertEffect("hunger", "+=", effect.arguments[0], "hunger");
+				upsertEffect("weightOffset", "+=", effect.arguments[1], "weightOffset");
 			}
 		}
 	}
-	return { effects: result.values().toArray(), conditional, timer };
+	return { effects: result.values().toArray(), conditional, timer, length: result.size + conditional.length + timer.length };
 };
 
 const isBody = (holder: string) => holder === "body" || holder.endsWith(".body");
