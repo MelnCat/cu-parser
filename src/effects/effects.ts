@@ -66,7 +66,7 @@ export const summarizeEffects = (effects: RawEffect[], ml?: number | number[]): 
 					result.set(key, { key, field, holder, operation: { type } });
 				}
 
-                return;
+				return;
 			}
 
 			const value = math.resolve(
@@ -149,6 +149,10 @@ export const summarizeEffects = (effects: RawEffect[], ml?: number | number[]): 
 				upsertEffect("disinfect", "disinfect", "=", "body", effect.arguments[0]);
 			} else if (effect.method === "Vomit") {
 				upsertEffect("vomit", "vomit", "()", "body");
+			} else if (effect.method === "AddComponent<MindwipeScript>") {
+				upsertEffect("mindwipe", "mindwipe", "()");
+			} else if (effect.method === "TryStartFibrillation") {
+				upsertEffect("fibrillate", "fibrillate", "()");
 			} else {
 				console.log(effect.method);
 			}

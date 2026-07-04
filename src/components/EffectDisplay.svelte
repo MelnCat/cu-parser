@@ -29,6 +29,8 @@
 		},
 		_: {
 			disinfect: "Disinfect Time",
+            mindwipe: "Mindwipe",
+            fibrillate: "Start Fibrillation"
 		},
 	};
 	const FIELD_LABELS: Record<string, string> = {
@@ -70,6 +72,9 @@
 		}
 	});
 	const displayValue = $derived.by(() => {
+        if (operation.type !== "call" && operation.value.toString().includes("ml")) {
+            return formatOperation(operation);
+        }
 		const [modifier, suffix] = match([holder, field])
 			.with(["body", "temperature"], () => [null, "°C"] as const)
 			.with(["body", "weightOffset"], () => [0.34, "kg"] as const)    
