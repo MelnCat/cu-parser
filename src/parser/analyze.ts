@@ -3,7 +3,7 @@ import { Query, type Node } from "web-tree-sitter";
 import { CSharp } from "./treeSitter";
 import { math, toMath } from "./math";
 import { queryRoot } from "./query";
-import type { LiquidEffect } from "./types";
+import type { RawEffect } from "./types";
 
 const declarationQuery = new Query(
 	CSharp,
@@ -17,8 +17,8 @@ const analyzeExpression = (
 	stuffToCheck: string[],
 	variables: Record<string, MathNode>,
 	classMethods: Map<string, Node>,
-): LiquidEffect[] => {
-	const effects: LiquidEffect[] = [];
+): RawEffect[] => {
+	const effects: RawEffect[] = [];
 
 	const assignment = queryRoot(
 		exp,
@@ -97,7 +97,7 @@ export const analyzeBlock = (
 	variables: Record<string, MathNode> = {},
 	classMethods: Map<string, Node> = new Map(),
 ) => {
-	const effects: LiquidEffect[] = [];
+	const effects: RawEffect[] = [];
 	const body = block.namedChildren;
 	const declarations = body.filter(x => x.type === "local_declaration_statement");
 	for (const decl of declarations) {

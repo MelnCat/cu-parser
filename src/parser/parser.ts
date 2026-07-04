@@ -1,7 +1,7 @@
 import type { Node } from "web-tree-sitter";
 import { Query } from "web-tree-sitter";
 import { analyzeBlock } from "./analyze";
-import type { LiquidData, LiquidEffect } from "./types";
+import type { LiquidData, RawEffect } from "./types";
 import { CSharp, parser } from "./treeSitter";
 import liquidsCs from "../assets/Liquids.cs?raw";
 
@@ -85,8 +85,8 @@ for (const [liquid, properties] of rawLiquidProperties) {
 
 	const injectionSickness = +(properties.injectionSickness?.text.replace("f", "") ?? 1);
 
-	let drinkEffects: LiquidEffect[] = [];
-	let injectEffects: LiquidEffect[] = [];
+	let drinkEffects: RawEffect[] = [];
+	let injectEffects: RawEffect[] = [];
 	if (properties.onDrink) {
 		drinkEffects = analyzeBlock(getBlock(properties.onDrink), liquid, stuffToCheck, {}, classMethods);
 	}
@@ -104,3 +104,5 @@ for (const [liquid, properties] of rawLiquidProperties) {
 		injectionSickness,
 	});
 }
+
+console.log(liquidData.entries().toArray())

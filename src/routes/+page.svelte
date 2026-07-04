@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { summarizeEffects } from "../effects/effects";
 	import { liquidData } from "../parser/parser";
-	import { format } from "../parser/format";
+	import { format, formatOperation } from "../parser/format";
 	import { FunctionNode } from "mathjs";
+	import EffectDisplay from "../components/EffectDisplay.svelte";
 
 	let ml = $state(100);
 	let useMl = $state(true);
@@ -14,14 +15,28 @@
 				return {
 					liquid: l,
 					data,
-					drinkEffects: summarizeEffects(data.drinkEffects.map(x => ({ effect: x, ml: useMl ? ml : undefined }))),
-					injectEffects:
-						data.injectEffects && summarizeEffects(data.injectEffects.map(x => ({ effect: x, ml: useMl ? ml : undefined }))),
+					drinkEffects: summarizeEffects(data.drinkEffects, useMl ? ml : undefined),
+					injectEffects: data.injectEffects && summarizeEffects(data.injectEffects, useMl ? ml : undefined),
 				};
 			})
 			.toArray(),
 	);
+	const dl = () => {
+		console.log(
+			liquidData
+				.entries()
+				.map(x => ({
+					...x[1],
+					key: x[0],
+					drinkEffects: summarizeEffects(x[1].drinkEffects),
+					injectEffects: x[1].injectEffects && summarizeEffects(x[1].injectEffects),
+				}))
+				.toArray(),
+		);
+	};
 </script>
+
+<button onclick={dl}>??</button>
 
 <div class="input">
 	<input type="number" bind:value={ml} />
@@ -35,39 +50,15 @@
 			<div class="effects">
 				<h2 class="sub-label">Drink Effects</h2>
 				<div class="effect-list">
-					{#each drinkEffects.effects as { key, value }}
-						<div>{key}: {format(value)}</div>
-					{/each}
-					{#each drinkEffects.conditional as { key, value, condition }}
-						<div>{key}: {format(value)}</div>
-						<div class="condition">Condition: {format(condition)}</div>
-					{/each}
-					{#each drinkEffects.timer as { key, value, timer, condition }}
-						{@const duration = new FunctionNode("ceil", [timer])}
-						<div>{key}: {format(value)} / s</div>
-						{#if condition}
-							<div class="condition">Condition: {format(condition)}</div>
-						{/if}
-						<div class="condition">Duration: {format(duration)}s</div>
+					{#each drinkEffects as effect}
+						<EffectDisplay {effect} />
 					{/each}
 				</div>
 				{#if injectEffects.length}
 					<h2 class="sub-label">Inject Effects</h2>
 					<div class="effect-list">
-						{#each injectEffects.effects as { key, value }}
-							<div>{key}: {format(value)}</div>
-						{/each}
-						{#each injectEffects.conditional as { key, value, condition }}
-							<div>{key}: {format(value)}</div>
-							<div class="condition">Condition: {format(condition)}</div>
-						{/each}
-						{#each injectEffects.timer as { key, value, timer, condition }}
-							{@const duration = new FunctionNode("ceil", [timer])}
-							<div>{key}: {format(value)} / s</div>
-							{#if condition}
-								<div class="condition">Condition: {format(condition)}</div>
-							{/if}
-							<div class="condition">Duration: {format(duration)}s</div>
+						{#each injectEffects as effect}
+							<EffectDisplay {effect} />
 						{/each}
 					</div>
 				{/if}
@@ -82,8 +73,7 @@
 		top: 0;
 		left: 0;
 	}
-	.condition {
-		font-size: 0.8em;
+	.effect-list {
 		margin-left: 1em;
 	}
 	.liquids {
@@ -99,6 +89,7 @@
 		border-left: 0.4em solid var(--color);
 		height: 20em;
 		padding: 0.5em;
+		overflow-y: auto;
 	}
 	.label {
 		font-size: 1.2em;

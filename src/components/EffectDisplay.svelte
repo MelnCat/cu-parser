@@ -1,45 +1,107 @@
 <script lang="ts">
-	import { ConstantNode, format, type MathNode, type MathScope } from "mathjs";
-	import type { LiquidEffect } from "../parser/types";
-	import { math } from "../parser/math";
-	import { formatAssignment, populateMath } from "../parser/format";
+	import { ConstantNode, FunctionNode, OperatorNode, type MathNode } from "mathjs";
+	import type { AnySummarizedEffect } from "../effects/effects";
+	import { format, formatOperation } from "../parser/format";
+	import { match, P } from "ts-pattern";
 
-	const { effect, variables, evaluate }: { effect: LiquidEffect; variables: MathScope; evaluate: boolean } = $props();
+	const { effect }: { effect: AnySummarizedEffect } = $props();
 
-	const display = $derived.by(() => {
-		if (effect.type === "assignment") {
-			const amount = populateMath(effect.expression, variables, evaluate);
-			if (effect.holder === "body" || effect.holder === "limb.body") {
-				const property =
-					{
-						happiness: "Happiness",
-						sicknessAmount: "Sickness",
-						temperature: "Temperature",
-						septicShock: "Sepsis",
-					}[effect.field] ?? effect.field;
-				//console.log(`   ${property}: ${formatAssignment(amount, effect.operator)}`);
-				return `${property}: ${formatAssignment(amount, effect.operator)}`;
-			} else return `   ${effect.holder}->${effect.field} ${formatAssignment(amount, effect.operator)}`;
+	const { operation, field, key, holder } = $derived(effect);
+
+	const mult = (x: MathNode, y: number) => new OperatorNode("*", "multiply", [x, new ConstantNode(y)]);
+
+	const HOLDER_FIELD_LABELS: Record<string, Record<string, string>> = {
+		body: {
+			temperature: "Temperature",
+			happiness: "Happiness",
+			consciousness: "Consciousness",
+			sicknessAmount: "Sickness",
+			adrenaline: "Adrenaline",
+			heartRate: "Heart Rate",
+			fibrillationProgress: "Fibrillation",
+			shock: "Pain Shock",
+			antibioticImmunityTime: "Antibiotic Time",
+			weightOffset: "Weight",
+			hunger: "Hunger",
+			thirst: "Thirst",
+			stamina: "Stamina",
+            vomit: "Vomit"
+		},
+		_: {
+			disinfect: "Disinfect Time",
+		},
+	};
+	const FIELD_LABELS: Record<string, string> = {
+		opiateAmount: "Opiate",
+		antagonistAmount: "Antagonist",
+		opiateTolerance: "Opiate Tolerance",
+	};
+	const LIMB_FIELD_LABELS: Record<string, string> = {
+		pain: "Pain",
+		muscleHealth: "Muscle Health",
+		skinHealth: "Skin Health",
+	};
+	const matchLimb = (holder: string) => {
+		const index = holder.match(/limbs\[(\d+)\]$/)?.[1];
+		if (index === undefined) {
+			if (holder === "limb") {
+				return "Limb";
+			}
+			return undefined;
 		}
-		if (effect.type === "method_call") {
-			if (effect.holder === "body.talker") return;
-			const amounts = effect.arguments.map(x => populateMath(x, variables, evaluate));
-			if (effect.holder === "body" || effect.holder === "limb.body") {
-				if (effect.method === "Eat") {
-					return `Hunger: ${format(amounts[0]!)}\nWeight: ${format(amounts[1]!)}`;
-				}
-				const property =
-					{
-						Drink: "Thirst",
-					}[effect.method] ?? effect.method;
-				return `   ${property}: ${format(amounts[0] ?? new ConstantNode(0))}`;
-			} else return `   ${effect.holder}->${effect.method} : ${amounts.join(" | ")}`;
+		return {
+			0: "Head",
+			1: "Upper Torso",
+			2: "Lower Torso",
+			3: "Right Arm",
+			6: "Left Arm",
+			9: "Right Leg",
+			12: "Left Leg",
+		}[index];
+	};
+
+	const limb = $derived(holder && matchLimb(holder));
+
+	const displayKey = $derived.by(() => {
+		if (limb) {
+			return field in LIMB_FIELD_LABELS ? `${limb} ${LIMB_FIELD_LABELS[field]}` : `${holder}_${field}`;
+		} else {
+			return HOLDER_FIELD_LABELS[holder ?? "_"]?.[field] ?? FIELD_LABELS[field] ?? `${holder}_${field}`;
 		}
-		if (effect.timer) return `   ^ [Timer: Repeated ${populateMath(effect.timer, variables, evaluate)} times]`;
-		if (effect.condition) return `   ^ [Condition: ${format(math.simplify(effect.condition))}]`;
+	});
+	const displayValue = $derived.by(() => {
+		const [modifier, suffix] = match([holder, field])
+			.with(["body", "temperature"], () => [null, "°C"] as const)
+			.with(["body", "weightOffset"], () => [0.34, "kg"] as const)    
+			.with([P._, "antibioticImmunityTime"], () => [0.01, "s"] as const)
+			.with([P._, "pain"], () => [0.01, null] as const)
+			.otherwise(() => [null, null] as const);
+
+		const formatted = modifier ? formatOperation(operation, x => mult(x, modifier)) : formatOperation(operation);
+
+		return `${formatted}${suffix ?? ""}`;
 	});
 </script>
 
 <div class="effect">
-	{display}
+	{#if effect.timer}
+		{@const duration = new FunctionNode("ceil", [effect.timer])}
+		<div><b>{displayKey}</b>: {displayValue} every second</div>
+		{#if effect.condition}
+			<div class="condition">Condition: {format(effect.condition)}</div>
+		{/if}
+		<div class="condition">Duration: {format(duration)}s</div>
+	{:else}
+		<div><b>{displayKey}</b>: {displayValue}</div>
+		{#if effect.condition}
+			<div class="condition">Condition: {format(effect.condition)}</div>
+		{/if}
+	{/if}
 </div>
+
+<style>
+	.condition {
+		font-size: 0.8em;
+		margin-left: 1em;
+	}
+</style>

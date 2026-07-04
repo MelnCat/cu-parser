@@ -1,132 +1,160 @@
-import { ConstantNode, OperatorNode, type MathNode } from "mathjs";
+import { ConstantNode, isFunctionNode, OperatorNode, orDependencies, SymbolNode, type MathNode } from "mathjs";
 import { math } from "../parser/math";
-import type { LiquidEffect } from "../parser/types";
+import type { RawEffect } from "../parser/types";
+import { match, P } from "ts-pattern";
 
-export interface EffectOperation {
+export interface NumericOperation {
 	type: "add" | "multiply" | "set";
 	value: MathNode;
 }
+export interface CallOperation {
+	type: "call";
+}
+
+export type EffectOperation = NumericOperation | CallOperation;
 
 export interface SummarizedEffect {
 	key: string;
 	field: string;
 	holder?: string;
-	operations: EffectOperation[];
+	operation: EffectOperation;
 }
-export interface Summary {
-	effects: SummarizedEffect[];
-	conditional: (SummarizedEffect & { condition: MathNode })[];
-	timer: (SummarizedEffect & { condition?: MathNode; timer: MathNode })[];
-	length: number;
+export interface AnySummarizedEffect extends SummarizedEffect {
+	condition?: MathNode;
+	timer?: MathNode;
 }
 
-export const summarizeEffects = (effects: { effect: LiquidEffect; ml?: number }[]): Summary => {
+export const summarizeEffects = (effects: RawEffect[], ml?: number | number[]): AnySummarizedEffect[] => {
 	const result = new Map<string, SummarizedEffect>();
 	const conditional: (SummarizedEffect & { condition: MathNode })[] = [];
 	const timer: (SummarizedEffect & { condition?: MathNode; timer: MathNode })[] = [];
 
-	for (const { effect, ml } of effects) {
-		const upsertEffect = (key: string, operation: string, amount: MathNode, field: string, holder?: string) => {
-			const type =
-				operation === "+=" || operation === "-="
-					? "add"
-					: operation === "*=" || operation === "/="
-						? "multiply"
-						: operation === "="
-							? "set"
-							: "???";
-			if (type === "???") throw new Error("??");
-			const rawValue =
-				operation === "-="
-					? new OperatorNode("-", "unaryMinus", [amount])
-					: operation === "/="
-						? new OperatorNode("/", "divide", [new ConstantNode(1), amount])
-						: amount;
-			const scope = ml === undefined ? {} : { ml };
-			const value = math.resolve(rawValue, scope);
+	for (const [i, effect] of effects.entries()) {
+		const upsertEffect = (key: string, field: string, operator: string, holder?: string, amount?: MathNode) => {
+			const type = match(operator)
+				.with("+=", "-=", () => "add" as const)
+				.with("*=", "/=", () => "multiply" as const)
+				.with("=", () => "set" as const)
+				.with("()", () => "call" as const)
+				.otherwise(() => {
+					throw new Error(`Unknown operator ${operator}`);
+				});
+			const scope = ml === undefined ? {} : typeof ml === "number" ? { ml } : { ml: ml[i] };
+
+			if (!amount || type === "call") {
+				if (type !== "call") {
+					throw new Error("uho h");
+				}
+				if (effect.timer) {
+					timer.push({
+						key,
+						operation: { type },
+						timer: math.resolve(effect.timer, scope),
+						field,
+						holder,
+						...(effect.condition ? { condition: math.resolve(effect.condition, scope) } : null),
+					});
+				} else if (effect.condition) {
+					conditional.push({
+						key,
+						field,
+						holder,
+						operation: { type },
+						condition: math.resolve(effect.condition, scope),
+					});
+				} else {
+					result.set(key, { key, field, holder, operation: { type } });
+				}
+
+                return;
+			}
+
+			const value = math.resolve(
+				match(operator)
+					.with("-=", () => new OperatorNode("-", "unaryMinus", [amount]))
+					.with("/=", () => new OperatorNode("/", "divide", [new ConstantNode(1), amount]))
+					.otherwise(() => amount),
+				scope,
+			);
+
 			if (effect.timer) {
 				timer.push({
 					key,
-					operations: [{ type, value }],
+					operation: { type, value },
 					timer: math.resolve(effect.timer, scope),
-					condition: effect.condition && math.resolve(effect.condition, scope),
 					field,
 					holder,
+					...(effect.condition ? { condition: math.resolve(effect.condition, scope) } : null),
 				});
 			} else if (effect.condition && effect.condition.toString() !== "body.TryGetComponent<Painkillers>(component)") {
 				conditional.push({
 					key,
 					field,
 					holder,
-					operations: [{ type, value }],
+					operation: { type, value },
 					condition: math.resolve(effect.condition, scope),
 				});
 			} else {
-				if (result.has(key)) {
-					const found = result.get("key")!;
-					const last = found.operations.at(-1)!;
-					if (last.type === type) {
-						if (type === "add") {
-							last.value = new OperatorNode("+", "add", [last.value, value]);
-						} else if (type === "multiply") {
-							last.value = new OperatorNode("*", "multiply", [last.value, value]);
-						} else if (type === "set") {
-							last.value = value;
-						}
-					} else {
-						if (last.type === "set") {
-							found.operations = [{ type, value }];
-						} else {
-							found.operations.push({ type, value });
-						}
-					}
-				} else {
-					result.set(key, { key, field, holder, operations: [{ type, value }] });
+				const existing = result.get(key);
+				if (!existing || existing.operation.type === "call") {
+					result.set(key, { key, field, holder, operation: { type, value } });
+					return;
 				}
+
+				const last = existing.operation;
+				match([last.type, type])
+					.with([P.union("add", "set"), "add"], () => {
+						last.value = new OperatorNode("+", "add", [last.value, value]);
+					})
+					.with([P.union("multiply", "set"), "multiply"], () => {
+						last.value = new OperatorNode("*", "multiply", [last.value, value]);
+					})
+					.with([P._, "set"], () => {
+						last.type = "set";
+						last.value = value;
+					})
+					.with(["add", "multiply"], () => {
+						last.type = "set";
+						last.value = new OperatorNode("*", "multiply", [
+							new OperatorNode("+", "add", [new SymbolNode("current"), last.value]),
+							value,
+						]);
+					})
+					.with(["multiply", "add"], () => {
+						last.type = "set";
+						last.value = new OperatorNode("+", "add", [
+							new OperatorNode("*", "multiply", [new SymbolNode("current"), last.value]),
+							value,
+						]);
+					})
+					.exhaustive();
 			}
 		};
 		if (effect.type === "assignment") {
 			const key = `${effect.holder}.${effect.field}`;
-			const computed = effect.operator === "-=" ? new OperatorNode("-", "unaryMinus", [effect.expression]) : effect.expression;
-			const limb = matchLimb(effect.holder);
-			if (
-				isBody(effect.holder) ||
-				effect.holder === "limb.body.GetOrAddComponent<Painkillers>()" ||
-				effect.field === "antagonistAmount" ||
-				effect.field === "opiateTolerance" ||
-				effect.field === "opiateAmount"
-			) {
-				upsertEffect(effect.field, effect.operator, computed, effect.field, effect.holder);
+
+			if (isBody(effect.holder)) {
+				upsertEffect(effect.field, effect.field, effect.operator, "body", effect.expression);
 				// temperature, happiness, sicknessAmount
-			} else if (limb) {
-				upsertEffect(key, effect.operator, computed, effect.field, effect.holder);
 			} else {
-				console.log(`unknown effect assignment ${effect.holder} ${effect.field}`);
+				upsertEffect(key, effect.field, effect.operator, effect.holder, effect.expression);
 			}
 		} else if (effect.type === "method_call") {
 			if (effect.method === "Drink") {
-				upsertEffect("thirst", "+=", effect.arguments[0], "thirst");
-			}
-			if (effect.method === "Eat") {
-				upsertEffect("hunger", "+=", effect.arguments[0], "hunger");
-				upsertEffect("weightOffset", "+=", effect.arguments[1], "weightOffset");
+				upsertEffect("thirst", "thirst", "+=", "body", effect.arguments[0]);
+			} else if (effect.method === "Eat") {
+				upsertEffect("hunger", "hunger", "+=", "body", effect.arguments[0]);
+				upsertEffect("weightOffset", "weightOffset", "+=", "body", effect.arguments[1]);
+			} else if (effect.method === "SetDisinfect") {
+				upsertEffect("disinfect", "disinfect", "=", "body", effect.arguments[0]);
+			} else if (effect.method === "Vomit") {
+				upsertEffect("vomit", "vomit", "()", "body");
+			} else {
+				console.log(effect.method);
 			}
 		}
 	}
-	return { effects: result.values().toArray(), conditional, timer, length: result.size + conditional.length + timer.length };
+	return result.values().toArray().concat(conditional).concat(timer);
 };
 
 const isBody = (holder: string) => holder === "body" || holder.endsWith(".body");
-const matchLimb = (holder: string) => {
-	const index = holder.match(/limbs\[(\d)\]$/)?.[1];
-	if (index === undefined) return null;
-	return {
-		0: "Head",
-		1: "Upper Torso",
-		2: "Lower Torso",
-		3: "Right Arm",
-		6: "Left Arm",
-		9: "Right Leg",
-		12: "Left Leg",
-	}[index];
-};

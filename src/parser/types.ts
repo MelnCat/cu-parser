@@ -27,12 +27,12 @@ export interface MiscMethodCallEffect extends BaseLiquidEffect {
 	arguments: string[];
 }
 
-export type LiquidEffect = AssignmentEffect | MethodCallEffect | MiscMethodCallEffect;
+export type RawEffect = AssignmentEffect | MethodCallEffect | MiscMethodCallEffect;
 
 export interface LiquidData {
 	color: [number, number, number];
 	hexColor: string;
-	drinkEffects: LiquidEffect[];
-	injectEffects: LiquidEffect[];
+	drinkEffects: RawEffect[];
+	injectEffects: RawEffect[];
 	injectionSickness: number;
 }

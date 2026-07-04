@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { SvelteMap } from "svelte/reactivity";
 	import { liquidData } from "../../parser/parser";
-	import type { LiquidEffect } from "../../parser/types";
+	import type { RawEffect } from "../../parser/types";
 	import { FunctionNode, OperatorNode } from "mathjs";
 	import { format } from "../../parser/format";
 	import { summarizeEffects } from "../../effects/effects";
+	import EffectDisplay from "../../components/EffectDisplay.svelte";
 
 	const MAX_VOLUME = 10000;
 	const DRINK_VOLUME = 100;
@@ -33,7 +34,7 @@
 	});
 
 	const summary = $derived.by(() => {
-		const toSummarize: { effect: LiquidEffect; ml: number }[] = [];
+		const toSummarize: { effect: RawEffect; ml: number }[] = [];
 
 		const num = Math.min(DRINK_VOLUME, total);
 
@@ -44,7 +45,6 @@
 			}
 		}
 
-		console.log(summarizeEffects(toSummarize));
 		return summarizeEffects(toSummarize);
 	});
 </script>
@@ -77,29 +77,8 @@
 	</div>
 	<div class="right-panel">
 		<div class="effect-list">
-			{#each summary.effects as { key, value }}
-				<div class="effect">
-					{key}: {format(value)}
-				</div>
-			{/each}
-		</div>
-		<div class="effect-list">
-			{#each summary.conditional as { key, value, condition }}
-				<div class="effect">
-					<div>{key}: {format(value)}</div>
-					<div class="condition">↳ CONDITION: {format(condition)}</div>
-				</div>
-			{/each}
-		</div>
-		<div class="effect-list">
-			{#each summary.timer as { key, value, timer, condition }}
-				{@const activeTime = new FunctionNode("ceil", [timer])}
-				<div class="effect">
-					<div>{key}: {format(new OperatorNode("*", "multiply", [value, activeTime]))} over {format(activeTime)} seconds</div>
-					{#if condition}
-						<div class="condition">↳ CONDITION: {format(condition)}</div>
-					{/if}
-				</div>
+			{#each summary.all as effect}
+				<EffectDisplay {effect} />
 			{/each}
 		</div>
 	</div>
@@ -131,9 +110,5 @@
 		width: 8em;
 		height: 20em;
 		border: 0.6em solid #6a6a6a;
-	}
-	.condition {
-		font-size: 0.8em;
-		margin-left: 1em;
 	}
 </style>
