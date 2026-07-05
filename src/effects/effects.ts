@@ -16,7 +16,7 @@ export type EffectOperation = NumericOperation | CallOperation;
 export interface SummarizedEffect {
 	key: string;
 	field: string;
-	holder?: string;
+	holder: string | null;
 	operation: EffectOperation;
 }
 export interface AnySummarizedEffect extends SummarizedEffect {
@@ -34,13 +34,13 @@ export const summarizeEffects = (effects: RawEffect[], ml?: number | number[]): 
 			field,
 			key = field,
 			operator,
-			holder,
+			holder = null,
 			amount,
 		}: {
 			key?: string;
 			field: string;
 			operator: string;
-			holder?: string;
+			holder?: string | null;
 			amount?: MathNode;
 		}) => {
 			const type = match(operator)
@@ -185,15 +185,15 @@ export const summarizeEffects = (effects: RawEffect[], ml?: number | number[]): 
 
 const isBody = (holder: string) => holder === "body" || holder.endsWith(".body");
 const parseHolder = (rawHolder: string | null) => {
-	if (!rawHolder) return undefined;
+	if (!rawHolder) return null;
 	if (isBody(rawHolder)) {
 		return "body";
 	}
 	const limb = matchLimb(rawHolder);
-	if (limb !== undefined) {
+	if (limb !== null) {
 		return `limb_${limb}`;
 	}
-	return undefined;
+	return null;
 };
 export const matchLimb = (holder: string) => {
 	const index = holder.match(/limbs\[(\d+)\]$/)?.[1];
@@ -201,7 +201,7 @@ export const matchLimb = (holder: string) => {
 		if (holder === "limb") {
 			return -1;
 		}
-		return undefined;
+		return null;
 	}
 	return +index;
 };

@@ -4,7 +4,7 @@
 	import { format, formatOperation } from "../parser/format";
 	import { FunctionNode } from "mathjs";
 	import EffectDisplay from "../components/EffectDisplay.svelte";
-
+	import luaJson from "lua-json";
 	let ml = $state(100);
 	let useMl = $state(true);
 
@@ -22,17 +22,19 @@
 			.toArray(),
 	);
 	const dl = () => {
-		console.log(
+		const obj = Object.fromEntries(
 			liquidData
 				.entries()
 				.map(x => ({
 					...x[1],
-					key: x[0],
+					liquid: x[0],
 					drinkEffects: summarizeEffects(x[1].drinkEffects),
 					injectEffects: x[1].injectEffects && summarizeEffects(x[1].injectEffects),
 				}))
-				.toArray(),
+				.map(x => [x.liquid, x]),
 		);
+		console.log(obj);
+		console.log(luaJson.format(obj));
 	};
 </script>
 
