@@ -34,18 +34,20 @@
 	});
 
 	const summary = $derived.by(() => {
-		const toSummarize: { effect: RawEffect; ml: number }[] = [];
+		const effects: RawEffect[] = [];
+		const mls: number[] = [];
 
 		const num = Math.min(DRINK_VOLUME, total);
 
 		for (const { liquid, amount } of contents) {
 			const liquidDrink = amount * (num / total);
 			for (const effect of liquidData.get(liquid)!.drinkEffects) {
-				toSummarize.push({ effect, ml: liquidDrink });
+				effects.push(effect);
+				mls.push(liquidDrink);
 			}
 		}
 
-		return summarizeEffects(toSummarize);
+		return summarizeEffects(effects, mls);
 	});
 </script>
 
@@ -77,7 +79,7 @@
 	</div>
 	<div class="right-panel">
 		<div class="effect-list">
-			{#each summary.all as effect}
+			{#each summary as effect}
 				<EffectDisplay {effect} />
 			{/each}
 		</div>

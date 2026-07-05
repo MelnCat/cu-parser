@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { ConstantNode, FunctionNode, OperatorNode, type MathNode } from "mathjs";
-	import type { AnySummarizedEffect } from "../effects/effects";
+	import { matchLimb, type AnySummarizedEffect } from "../effects/effects";
 	import { format, formatOperation } from "../parser/format";
 	import { match, P } from "ts-pattern";
 
@@ -25,12 +25,12 @@
 			hunger: "Hunger",
 			thirst: "Thirst",
 			stamina: "Stamina",
-            vomit: "Vomit"
+			vomit: "Vomit",
 		},
 		_: {
 			disinfect: "Disinfect Time",
-            mindwipe: "Mindwipe",
-            fibrillate: "Start Fibrillation"
+			mindwipe: "Mindwipe",
+			fibrillate: "Start Fibrillation",
 		},
 	};
 	const FIELD_LABELS: Record<string, string> = {
@@ -43,41 +43,36 @@
 		muscleHealth: "Muscle Health",
 		skinHealth: "Skin Health",
 	};
-	const matchLimb = (holder: string) => {
-		const index = holder.match(/limbs\[(\d+)\]$/)?.[1];
-		if (index === undefined) {
-			if (holder === "limb") {
-				return "Limb";
-			}
-			return undefined;
-		}
-		return {
-			0: "Head",
-			1: "Upper Torso",
-			2: "Lower Torso",
-			3: "Right Arm",
-			6: "Left Arm",
-			9: "Right Leg",
-			12: "Left Leg",
-		}[index];
-	};
 
 	const limb = $derived(holder && matchLimb(holder));
 
 	const displayKey = $derived.by(() => {
 		if (limb) {
-			return field in LIMB_FIELD_LABELS ? `${limb} ${LIMB_FIELD_LABELS[field]}` : `${holder}_${field}`;
+			return field in LIMB_FIELD_LABELS
+				? `${
+						{
+                            [-1]: "Limb",
+							0: "Head",
+							1: "Upper Torso",
+							2: "Lower Torso",
+							3: "Right Arm",
+							6: "Left Arm",
+							9: "Right Leg",
+							12: "Left Leg",
+						}[limb]
+					} ${LIMB_FIELD_LABELS[field]}`
+				: `${holder}_${field}`;
 		} else {
 			return HOLDER_FIELD_LABELS[holder ?? "_"]?.[field] ?? FIELD_LABELS[field] ?? `${holder}_${field}`;
 		}
 	});
 	const displayValue = $derived.by(() => {
-        if (operation.type !== "call" && operation.value.toString().includes("ml")) {
-            return formatOperation(operation);
-        }
+		if (operation.type !== "call" && operation.value.toString().includes("ml")) {
+			return formatOperation(operation);
+		}
 		const [modifier, suffix] = match([holder, field])
 			.with(["body", "temperature"], () => [null, "°C"] as const)
-			.with(["body", "weightOffset"], () => [0.34, "kg"] as const)    
+			.with(["body", "weightOffset"], () => [0.34, "kg"] as const)
 			.with([P._, "antibioticImmunityTime"], () => [0.01, "s"] as const)
 			.with([P._, "pain"], () => [0.01, null] as const)
 			.otherwise(() => [null, null] as const);

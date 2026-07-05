@@ -30,7 +30,19 @@ export const summarizeEffects = (effects: RawEffect[], ml?: number | number[]): 
 	const timer: (SummarizedEffect & { condition?: MathNode; timer: MathNode })[] = [];
 
 	for (const [i, effect] of effects.entries()) {
-		const upsertEffect = (key: string, field: string, operator: string, holder?: string, amount?: MathNode) => {
+		const upsertEffect = ({
+			field,
+			key = field,
+			operator,
+			holder,
+			amount,
+		}: {
+			key?: string;
+			field: string;
+			operator: string;
+			holder?: string;
+			amount?: MathNode;
+		}) => {
 			const type = match(operator)
 				.with("+=", "-=", () => "add" as const)
 				.with("*=", "/=", () => "multiply" as const)
@@ -130,35 +142,66 @@ export const summarizeEffects = (effects: RawEffect[], ml?: number | number[]): 
 					.exhaustive();
 			}
 		};
-		if (effect.type === "assignment") {
-			const key = `${effect.holder}.${effect.field}`;
 
-			if (isBody(effect.holder)) {
-				upsertEffect(effect.field, effect.field, effect.operator, "body", effect.expression);
-				// temperature, happiness, sicknessAmount
-			} else {
-				upsertEffect(key, effect.field, effect.operator, effect.holder, effect.expression);
-			}
+		const holder = parseHolder(effect.holder);
+		if (effect.type === "assignment") {
+			upsertEffect({ field: effect.field, operator: effect.operator, holder, amount: effect.expression });
 		} else if (effect.type === "method_call") {
-			if (effect.method === "Drink") {
-				upsertEffect("thirst", "thirst", "+=", "body", effect.arguments[0]);
-			} else if (effect.method === "Eat") {
-				upsertEffect("hunger", "hunger", "+=", "body", effect.arguments[0]);
-				upsertEffect("weightOffset", "weightOffset", "+=", "body", effect.arguments[1]);
-			} else if (effect.method === "SetDisinfect") {
-				upsertEffect("disinfect", "disinfect", "=", "body", effect.arguments[0]);
-			} else if (effect.method === "Vomit") {
-				upsertEffect("vomit", "vomit", "()", "body");
-			} else if (effect.method === "AddComponent<MindwipeScript>") {
-				upsertEffect("mindwipe", "mindwipe", "()");
-			} else if (effect.method === "TryStartFibrillation") {
-				upsertEffect("fibrillate", "fibrillate", "()");
-			} else {
-				console.log(effect.method);
-			}
+			match(effect.method)
+				.with("Drink", () => {
+					upsertEffect({ field: "thirst", operator: "+=", holder: "body", amount: effect.arguments[0] });
+				})
+				.with("Eat", () => {
+					upsertEffect({ field: "hunger", operator: "+=", holder: "body", amount: effect.arguments[0] });
+					upsertEffect({
+						field: "weightOffset",
+						operator: "+=",
+						holder: "body",
+						amount: effect.arguments[1],
+					});
+				})
+				.with("SetDisinfect", () => {
+					upsertEffect({ field: "disinfect", operator: "=", holder: "body", amount: effect.arguments[0] });
+				})
+				.with("Vomit", () => {
+					upsertEffect({ field: "vomit", operator: "()", holder: "body" });
+				})
+				.with("AddComponent<MindwipeScript>", () => {
+					upsertEffect({ field: "mindwipe", operator: "()" });
+				})
+				.with("TryStartFibrillation", () => {
+					upsertEffect({ field: "fibrillate", operator: "()" });
+				})
+				.with("Ragdoll", () => {
+					upsertEffect({ field: "ragdoll", operator: "()" });
+				})
+				.otherwise(method => {
+					console.log(method);
+				});
 		}
 	}
 	return result.values().toArray().concat(conditional).concat(timer);
 };
 
 const isBody = (holder: string) => holder === "body" || holder.endsWith(".body");
+const parseHolder = (rawHolder: string | null) => {
+	if (!rawHolder) return undefined;
+	if (isBody(rawHolder)) {
+		return "body";
+	}
+	const limb = matchLimb(rawHolder);
+	if (limb !== undefined) {
+		return `limb_${limb}`;
+	}
+	return undefined;
+};
+export const matchLimb = (holder: string) => {
+	const index = holder.match(/limbs\[(\d+)\]$/)?.[1];
+	if (index === undefined) {
+		if (holder === "limb") {
+			return -1;
+		}
+		return undefined;
+	}
+	return +index;
+};
