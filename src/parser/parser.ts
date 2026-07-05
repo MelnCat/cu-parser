@@ -68,7 +68,10 @@ for (const match of matches) {
 	const liquidId = liquidIdNode.text.match(/"(.+)"/)![1]!;
 	if (!liquidId) throw new Error(`fuck 2`);
 
-	rawLiquidProperties.getOrInsert(liquidId, {} as RawLiquidProperties)[propKeyNode.text as keyof RawLiquidProperties] = propValueNode;
+	if (!rawLiquidProperties.has(liquidId)) {
+		rawLiquidProperties.set(liquidId, {} as RawLiquidProperties);
+	}
+	rawLiquidProperties.get(liquidId)![propKeyNode.text as keyof RawLiquidProperties] = propValueNode;
 }
 
 export const liquidData = new Map<string, LiquidData>();
@@ -105,4 +108,4 @@ for (const [liquid, properties] of rawLiquidProperties) {
 	});
 }
 
-console.log(liquidData.entries().toArray())
+console.log(liquidData.entries().toArray());
