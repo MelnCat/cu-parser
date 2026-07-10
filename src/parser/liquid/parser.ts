@@ -1,11 +1,9 @@
 import type { Node } from "web-tree-sitter";
 import { Query } from "web-tree-sitter";
-import { analyzeBlock } from "./analyze";
-import type { LiquidData, RawEffect } from "./types";
-import { CSharp, parser } from "./treeSitter";
-import liquidsCs from "../assets/Liquids.cs?raw";
-
-const getBlock = (node: Node) => node.children.find(x => x.type === "block")!;
+import { analyzeBlock } from "../analyze";
+import type { LiquidData, RawEffect } from "../types";
+import { CSharp, parser } from "../treeSitter";
+import liquidsCs from "../../assets/Liquids.cs?raw";
 
 const tree = parser.parse(liquidsCs)!;
 
@@ -91,10 +89,16 @@ for (const [liquid, properties] of rawLiquidProperties) {
 	let drinkEffects: RawEffect[] = [];
 	let injectEffects: RawEffect[] = [];
 	if (properties.onDrink) {
-		drinkEffects = analyzeBlock(getBlock(properties.onDrink), liquid, stuffToCheck, {}, classMethods);
+		drinkEffects = analyzeBlock(properties.onDrink.children.find(x => x.type === "block")!, liquid, stuffToCheck, {}, classMethods);
 	}
 	if (properties.onHealthUse) {
-		injectEffects = analyzeBlock(getBlock(properties.onHealthUse), liquid, stuffToCheck, {}, classMethods);
+		injectEffects = analyzeBlock(
+			properties.onHealthUse.children.find(x => x.type === "block")!,
+			liquid,
+			stuffToCheck,
+			{},
+			classMethods,
+		);
 	}
 	liquidData.set(liquid, {
 		color: color.slice(0, 3) as [number, number, number],

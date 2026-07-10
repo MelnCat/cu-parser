@@ -82,5 +82,12 @@ export const toMath = (node: Node): MathNode => {
 			toMath(node.childForFieldName("alternative")!),
 		]);
 	}
-	throw new Error(`${node.text}: ${node.type}`);
+	if (node.type === "cast_expression") {
+		// todo
+		return new SymbolNode(node.childForFieldName("value")!.text);
+	}
+    if (node.type ==="object_creation_expression") {
+        return new SymbolNode(`<object>`)
+    }
+	throw new Error(`${node.text}: ${node.type} ${node.toString()}`);
 };

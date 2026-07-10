@@ -30,8 +30,8 @@ const analyzeExpression = (
 	);
 	if (assignment) {
 		if (assignment.left!.text === "_") return effects;
-		const holder = assignment.left!.namedChild(0)!.text;
-		const field = assignment.left!.namedChild(1)!.text;
+		const holder = assignment.left.namedChildCount >= 2 ? assignment.left!.namedChild(0)!.text : null;
+		const field = assignment.left.namedChildCount >= 2 ? assignment.left!.namedChild(1)!.text : assignment.left!.text;
 		try {
 			effects.push({
 				type: "assignment",
@@ -39,6 +39,8 @@ const analyzeExpression = (
 				field,
 				operator: assignment.assign!.text,
 				expression: math.resolve(toMath(assignment.right!), variables),
+                rawLeft: assignment.left,
+                rawRight: assignment.right
 			});
 		} catch (e) {
 			stuffToCheck.push(`!! Check ${liquid} for assignment for ${assignment.left!.text} | ${e}`);
@@ -60,10 +62,10 @@ const analyzeExpression = (
 			const found = classMethods.get(method)!;
 			effects.push(...analyzeBlock(found, liquid, stuffToCheck, {}, classMethods));
 		}
-		const args = methodCall.args!.namedChildren.map(x => x.child(0));
+		const args = methodCall.args!.namedChildren.map(x => x.child(0)!);
 		if (holder === "CoUtils.instance" && method === "DoTimedOp") {
-			const callback = args[1]!;
-			const duration = args[2]!;
+			const callback = args[1];
+			const duration = args[2];
 			const mathDuration = math.resolve(toMath(duration), variables);
 			const timerEffects = analyzeBlock(callback.namedChild(0)!, liquid, stuffToCheck, variables, classMethods);
 			effects.push(...timerEffects.map(x => ({ ...x, timer: mathDuration })));
@@ -75,6 +77,8 @@ const analyzeExpression = (
 				arguments: args.map(x => math.resolve(toMath(x!), variables)),
 				method,
 				holder,
+                rawMethod: methodCall.method,
+                rawArguments: args
 			});
 		} catch (e) {
 			effects.push({
@@ -82,6 +86,8 @@ const analyzeExpression = (
 				arguments: args.map(x => x!.text!),
 				method,
 				holder,
+                rawMethod: methodCall.method,
+                rawArguments: args
 			});
 			stuffToCheck.push(`!! Check ${liquid} for method ${holder} ${method} | ${e}`);
 		}

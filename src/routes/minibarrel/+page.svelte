@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { SvelteMap } from "svelte/reactivity";
-	import { liquidData } from "../../parser/parser";
+	import { liquidData } from "../../parser/liquid/parser";
 	import type { RawEffect } from "../../parser/types";
 	import { FunctionNode, OperatorNode } from "mathjs";
 	import { format } from "../../parser/format";

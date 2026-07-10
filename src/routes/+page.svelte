@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { summarizeEffects } from "../effects/effects";
-	import { liquidData } from "../parser/parser";
+	import { liquidData } from "../parser/liquid/parser";
 	import { format, formatOperation } from "../parser/format";
 	import { FunctionNode } from "mathjs";
 	import EffectDisplay from "../components/EffectDisplay.svelte";
@@ -29,12 +29,14 @@
 					...x[1],
 					liquid: x[0],
 					drinkEffects: summarizeEffects(x[1].drinkEffects),
-					injectEffects: x[1].injectEffects && summarizeEffects(x[1].injectEffects),
+					injectEffects:
+						x[1].injectEffects &&
+						summarizeEffects(x[1].injectEffects),
 				}))
 				.map(x => [x.liquid, x]),
 		);
 		console.log(obj);
-		console.log(luaJson.format(obj));
+		console.log(luaJson.format(JSON.parse(JSON.stringify(obj))));
 	};
 </script>
 

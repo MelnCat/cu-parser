@@ -1,4 +1,5 @@
 import type { MathNode } from "mathjs";
+import type { Node } from "web-tree-sitter";
 
 export interface BaseLiquidEffect {
 	condition?: MathNode;
@@ -7,10 +8,12 @@ export interface BaseLiquidEffect {
 
 export interface AssignmentEffect extends BaseLiquidEffect {
 	type: "assignment";
-	holder: string;
+	holder: string | null;
 	field: string;
 	operator: string;
 	expression: MathNode;
+    rawLeft: Node;
+    rawRight: Node;
 }
 
 export interface MethodCallEffect extends BaseLiquidEffect {
@@ -18,6 +21,8 @@ export interface MethodCallEffect extends BaseLiquidEffect {
 	holder: string | null;
 	method: string;
 	arguments: MathNode[];
+    rawMethod: Node;
+    rawArguments: Node[];
 }
 
 export interface MiscMethodCallEffect extends BaseLiquidEffect {
@@ -25,6 +30,8 @@ export interface MiscMethodCallEffect extends BaseLiquidEffect {
 	holder: string | null;
 	method: string;
 	arguments: string[];
+    rawMethod: Node;
+    rawArguments: Node[];
 }
 
 export type RawEffect = AssignmentEffect | MethodCallEffect | MiscMethodCallEffect;
