@@ -43,6 +43,7 @@ export const summarizeEffects = (effects: RawEffect[], ml?: number | number[]): 
 			holder?: string | null;
 			amount?: MathNode;
 		}) => {
+            console.log(effect)
 			const type = match(operator)
 				.with("+=", "-=", () => "add" as const)
 				.with("*=", "/=", () => "multiply" as const)
@@ -55,7 +56,7 @@ export const summarizeEffects = (effects: RawEffect[], ml?: number | number[]): 
 
 			if (!amount || type === "call") {
 				if (type !== "call") {
-					throw new Error("uho h");
+					throw new Error(`what ${key} ${field} ${operator} ${amount}`);
 				}
 				if (effect.timer) {
 					timer.push({
@@ -149,9 +150,18 @@ export const summarizeEffects = (effects: RawEffect[], ml?: number | number[]): 
 		} else if (effect.type === "method_call") {
 			match(effect.method)
 				.with("Drink", () => {
-					upsertEffect({ field: "thirst", operator: "+=", holder: "body", amount: effect.arguments[0] });
+                    if (effect.holder === "item.GetComponent<WaterContainerItem>()") {
+                        upsertEffect({ operator: "()", amount: effect.arguments[1] ?? new ConstantNode(100), field: "Drink" });
+                    }
+					if (effect.holder === "body") {
+                        upsertEffect({ field: "thirst", operator: "+=", holder: "body", amount: effect.arguments[0] });
+                    }
 				})
 				.with("Eat", () => {
+					if (effect.holder !== "body") {
+						console.warn("idk");
+						return;
+					}
 					upsertEffect({ field: "hunger", operator: "+=", holder: "body", amount: effect.arguments[0] });
 					upsertEffect({
 						field: "weightOffset",

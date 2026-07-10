@@ -25,10 +25,11 @@ const mappings = {
 };
 
 export const format = (node: MathNode): string => {
+	console.log(node.toString(), "ok");
 	node = node.transform((node, path, parent) => {
 		if (isOperatorNode(node)) {
-			if (node.args.some(x => x.toString() === "Random.value" || x.toString() === "Random.Range(0, 1)")) {
-				const left = node.args[0].toString() === "Random.value" || node.args[0].toString() === "Random.Range(0, 1)";
+			if (node.args.some(x => x.toString().endsWith("Random.value") || x.toString().endsWith("Random.Range(0, 1)"))) {
+				const left = node.args[0].toString().endsWith("Random.value") || node.args[0].toString().endsWith("Random.Range(0, 1)");
 				const chance = new OperatorNode("*", "multiply", [left ? node.args[1] : node.args[0], new ConstantNode(100)]);
 				const invChance = new OperatorNode("-", "subtract", [new ConstantNode(100), chance]);
 				if ((left && node.op === "<") || (!left && node.op === ">")) {
@@ -39,7 +40,7 @@ export const format = (node: MathNode): string => {
 				}
 			}
 		}
-        return node;
+		return node;
 	});
 	node = math.simplify(node, {}, { exactFractions: false });
 	const str = node.toString();
@@ -68,19 +69,22 @@ export const format = (node: MathNode): string => {
 export const formatOperation = (op: EffectOperation, map: (node: MathNode) => MathNode = x => x) => {
 	const { type } = op;
 	if (type === "call") return "";
-
-	const value = math.simplify(op.value, {}, { exactFractions: false });
-	return match(type)
-		.with("add", () => {
-			if (value.toString().startsWith("-")) return format(map(value));
-			return `+${format(map(value))}`;
-		})
-		.with("multiply", () => `×${format(value)}`)
-		.with("set", () => {
-			if (isFunctionNode(value) && value.fn.name === "Mathf.MoveTowards") {
-				return `-> ${format(map(value.args[1]))} by ${format(map(value.args[2]))}`;
-			}
-			return `= ${format(map(value))}`;
-		})
-		.exhaustive();
+	try {
+		const value = math.simplify(op.value, {}, { exactFractions: false });
+		return match(type)
+			.with("add", () => {
+				if (value.toString().startsWith("-")) return format(map(value));
+				return `+${format(map(value))}`;
+			})
+			.with("multiply", () => `×${format(value)}`)
+			.with("set", () => {
+				if (isFunctionNode(value) && value.fn.name === "Mathf.MoveTowards") {
+					return `-> ${format(map(value.args[1]))} by ${format(map(value.args[2]))}`;
+				}
+				return `= ${format(map(value))}`;
+			})
+			.exhaustive();
+	} catch {
+		return `ERROR: ${op.type} ${op.value}`;
+	}
 };

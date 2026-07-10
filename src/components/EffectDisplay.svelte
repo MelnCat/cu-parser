@@ -44,8 +44,7 @@
 		skinHealth: "Skin Health",
 	};
 
-	const limb = $derived(holder && matchLimb(holder));
-
+	const limb = $derived(holder && holder.startsWith("limb_") ? +holder.replace("limb_", "") : null);
 	const displayKey = $derived.by(() => {
 		if (limb) {
 			return field in LIMB_FIELD_LABELS

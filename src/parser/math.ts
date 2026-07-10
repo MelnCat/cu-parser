@@ -8,6 +8,7 @@ math.import({
 	"Mathf.Clamp01": (n: number) => Math.max(0, Math.min(1, n)),
 	//"Random.Range": (from: number, to: number) => Math.random() * (to - from) + from
 	"Random.Range": (from: number, to: number) => [from, to],
+	"UnityEngine.Random.Range": (from: number, to: number) => [from, to],
 	"Mathf.Min": Math.min,
 	"Mathf.MoveTowards": (current: number, target: number, maxDelta: number) => {
 		if (Math.abs(target - current) <= maxDelta) {
@@ -46,6 +47,7 @@ export const toMath = (node: Node): MathNode => {
 				and: "and",
 				or: "or",
 				"==": "equal",
+                "!=": "notEqual"
 			}[mathOp] as "add",
 			[toMath(left), toMath(right)],
 		);
@@ -88,6 +90,9 @@ export const toMath = (node: Node): MathNode => {
 	}
     if (node.type ==="object_creation_expression") {
         return new SymbolNode(`<object>`)
+    }
+    if (node.type === "null_literal") {
+        return new SymbolNode("null")
     }
 	throw new Error(`${node.text}: ${node.type} ${node.toString()}`);
 };

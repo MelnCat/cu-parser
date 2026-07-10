@@ -1,7 +1,7 @@
 import { Node } from "web-tree-sitter";
 import { Query } from "web-tree-sitter";
 import { analyzeBlock } from "../analyze";
-import type { LiquidData, RawEffect } from "../types";
+import type { ItemData, LiquidData, RawEffect } from "../types";
 import { CSharp, parser } from "../treeSitter";
 import itemCs from "../../assets/Item.cs?raw";
 
@@ -57,18 +57,24 @@ for (const found of matches) {
 }
 
 const check: string[] = [];
-for (const [key, props] of rawMap) {
-	console.log(key, props);
+export const itemData = new Map(rawMap.entries().map(([key, props]) => {
+	const data: ItemData = {};
+    if (props.usable) {
+        data.usable = props.usable.text === "true";
+    }
+    if (props.usableOnLimb) {
+        data.usableOnLimb = props.usableOnLimb.text === "true";
+    }
+    if (props.usableWithLMB) {
+        data.usableWithLMB = props.usableWithLMB.text === "true";
+    }
 	if (props.useAction) {
-		for (const eff of analyzeBlock(props.useAction.children.find(x => x.type === "block")!, key, check, {}, new Map())) {
-			console.log(eff);
-		}
+		data.useAction = analyzeBlock(props.useAction.children.find(x => x.type === "block")!, key, check, {}, new Map());
 	}
-}
+	if (props.useLimbAction) {
+		data.useLimbAction = analyzeBlock(props.useLimbAction.children.find(x => x.type === "block")!, key, check, {}, new Map());
+	}
+    return [key, data];
+}));
+
 console.log(check);
-console.log(
-	rawMap
-		.values()
-		.map(x => Object.keys(x))
-		.toArray(),
-);

@@ -43,3 +43,11 @@ export interface LiquidData {
 	injectEffects: RawEffect[];
 	injectionSickness: number;
 }
+
+export interface ItemData {
+	usable?: boolean;
+	usableOnLimb?: boolean;
+	usableWithLMB?: boolean;
+	useAction?: RawEffect[];
+	useLimbAction?: RawEffect[];
+}
