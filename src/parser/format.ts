@@ -24,14 +24,28 @@ const mappings = {
 	"body.inCardiacArrest": "[In Cardiac Arrest]",
 };
 
+const isRandomValue = (str: string) =>
+	str === "Random.value" ||
+	str === "UnityEngine.Random.value" ||
+	str === "Random.Range(0, 1)" ||
+	str === "UnityEngine.Random.Range(0, 1)";
+
+const simplifyRules = [
+    ...math.simplify.rules,
+	{ l: "not (n1 < n2)", r: "n1 >= n2" },
+	{ l: "not (n1 > n2)", r: "n1 <= n2" },
+	{ l: "not (n1 <= n2)", r: "n1 > n2" },
+	{ l: "not (n1 >= n2)", r: "n1 < n2" },
+];
+
 export const format = (node: MathNode): string => {
-	console.log(node.toString(), "ok");
 	node = node.transform((node, path, parent) => {
 		if (isOperatorNode(node)) {
-			if (node.args.some(x => x.toString().endsWith("Random.value") || x.toString().endsWith("Random.Range(0, 1)"))) {
-				const left = node.args[0].toString().endsWith("Random.value") || node.args[0].toString().endsWith("Random.Range(0, 1)");
+			if (node.args.some(x => isRandomValue(x.toString()))) {
+				const left = isRandomValue(node.args[0].toString());
 				const chance = new OperatorNode("*", "multiply", [left ? node.args[1] : node.args[0], new ConstantNode(100)]);
 				const invChance = new OperatorNode("-", "subtract", [new ConstantNode(100), chance]);
+                console.log(chance, format(chance))
 				if ((left && node.op === "<") || (!left && node.op === ">")) {
 					return new SymbolNode(`[${format(chance)}% Chance]`);
 				}
@@ -42,7 +56,7 @@ export const format = (node: MathNode): string => {
 		}
 		return node;
 	});
-	node = math.simplify(node, {}, { exactFractions: false });
+	node = math.simplify(node, simplifyRules, {}, { exactFractions: false });
 	const str = node.toString();
 	if (str in mappings) return mappings[str as keyof typeof mappings];
 	if (isOperatorNode(node)) {
@@ -70,7 +84,7 @@ export const formatOperation = (op: EffectOperation, map: (node: MathNode) => Ma
 	const { type } = op;
 	if (type === "call") return "";
 	try {
-		const value = math.simplify(op.value, {}, { exactFractions: false });
+		const value = math.simplify(op.value, simplifyRules, {}, { exactFractions: false });
 		return match(type)
 			.with("add", () => {
 				if (value.toString().startsWith("-")) return format(map(value));

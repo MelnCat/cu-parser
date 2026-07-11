@@ -1,46 +1,39 @@
 <script lang="ts">
 	import { summarizeEffects } from "../../effects/effects";
+	import { liquidData } from "../../parser/liquid/parser";
 	import { format, formatOperation } from "../../parser/format";
 	import { FunctionNode } from "mathjs";
 	import EffectDisplay from "../../components/EffectDisplay.svelte";
 	import luaJson from "lua-json";
-	import { itemData } from "../../parser/item/parser";
 	let ml = $state(100);
 	let useMl = $state(true);
 
-	const mappedItems = $derived(
-		itemData
+	const mappedLiquids = $derived(
+		liquidData
 			.entries()
 			.map(([l, data]) => {
 				return {
-					item: l,
+					liquid: l,
 					data,
-					useAction:
-						data.useAction &&
-						summarizeEffects(data.useAction),
-					useLimbAction:
-						data.useLimbAction &&
-						summarizeEffects(data.useLimbAction),
+					drinkEffects: summarizeEffects(data.drinkEffects, useMl ? ml : undefined),
+					injectEffects: data.injectEffects && summarizeEffects(data.injectEffects, useMl ? ml : undefined),
 				};
 			})
-			.toArray()
-            .sort((a,b) => a.item.localeCompare(b.item)),
+			.toArray(),
 	);
 	const dl = () => {
 		const obj = Object.fromEntries(
-			itemData
+			liquidData
 				.entries()
 				.map(x => ({
 					...x[1],
-					key: x[0],
-					useAction:
-						x[1].useAction &&
-						summarizeEffects(x[1].useAction),
-					useLimbAction:
-						x[1].useLimbAction &&
-						summarizeEffects(x[1].useLimbAction),
+					liquid: x[0],
+					drinkEffects: summarizeEffects(x[1].drinkEffects),
+					injectEffects:
+						x[1].injectEffects &&
+						summarizeEffects(x[1].injectEffects),
 				}))
-				.map(x => [x.key, x]),
+				.map(x => [x.liquid, x]),
 		);
 		console.log(obj);
 		console.log(luaJson.format(JSON.parse(JSON.stringify(obj))));
@@ -55,22 +48,20 @@
 </div>
 
 <div class="liquids">
-	{#each mappedItems as { item: liquid, data, useAction, useLimbAction }}
-		<div class="liquid">
+	{#each mappedLiquids as { liquid, data, drinkEffects, injectEffects }}
+		<div class="liquid" style:--color={`#${data.color.map(x => x.toString(16).padStart(2, "0")).join("")}`}>
 			<h1 class="label">{liquid}</h1>
 			<div class="effects">
-				{#if useAction?.length}
-					<h2 class="sub-label">Use Effects</h2>
+				<h2 class="sub-label">Drink Effects</h2>
+				<div class="effect-list">
+					{#each drinkEffects as effect}
+						<EffectDisplay {effect} />
+					{/each}
+				</div>
+				{#if injectEffects.length}
+					<h2 class="sub-label">Inject Effects</h2>
 					<div class="effect-list">
-						{#each useAction as effect}
-							<EffectDisplay {effect} />
-						{/each}
-					</div>
-				{/if}
-				{#if useLimbAction?.length}
-					<h2 class="sub-label">Use Limb Effects</h2>
-					<div class="effect-list">
-						{#each useLimbAction as effect}
+						{#each injectEffects as effect}
 							<EffectDisplay {effect} />
 						{/each}
 					</div>

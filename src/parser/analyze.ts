@@ -39,8 +39,8 @@ const analyzeExpression = (
 				field,
 				operator: assignment.assign!.text,
 				expression: math.resolve(toMath(assignment.right!), variables),
-                rawLeft: assignment.left,
-                rawRight: assignment.right
+				rawLeft: assignment.left,
+				rawRight: assignment.right,
 			});
 		} catch (e) {
 			stuffToCheck.push(`!! Check ${liquid} for assignment for ${assignment.left!.text} | ${e}`);
@@ -77,8 +77,8 @@ const analyzeExpression = (
 				arguments: args.map(x => math.resolve(toMath(x!), variables)),
 				method,
 				holder,
-                rawMethod: methodCall.method,
-                rawArguments: args
+				rawMethod: methodCall.method,
+				rawArguments: args,
 			});
 		} catch (e) {
 			effects.push({
@@ -86,8 +86,8 @@ const analyzeExpression = (
 				arguments: args.map(x => x!.text!),
 				method,
 				holder,
-                rawMethod: methodCall.method,
-                rawArguments: args
+				rawMethod: methodCall.method,
+				rawArguments: args,
 			});
 			stuffToCheck.push(`!! Check ${liquid} for method ${holder} ${method} | ${e}`);
 		}
@@ -132,24 +132,47 @@ export const analyzeBlock = (
 	}
 
 	const ifs = body.filter(x => x.type === "if_statement");
-	for (const exp of ifs) {
+	const processIf = (exp: Node) => {
+        const result: RawEffect[] = [];
 		const ifStatement = queryRoot(
 			exp,
 			`(if_statement 
-				condition: (_) @condition consequence: (_) @consequence)`,
+				condition: (_) @condition consequence: (_) @consequence alternative: (_)? @alternative)`,
 		);
-		if (ifStatement) {
-			const cond = ifStatement.condition!;
-			const cons = ifStatement.consequence!;
-			const mathCond = math.resolve(toMath(cond!), variables);
-			const condEffects = analyzeBlock(cons, liquid, stuffToCheck, variables, classMethods);
-			effects.push(
-				...condEffects.map(x => ({
+		if (!ifStatement) return [];
+		const cond = ifStatement.condition!;
+		const cons = ifStatement.consequence!;
+		const mathCond = math.resolve(toMath(cond!), variables);
+		const condEffects = analyzeBlock(cons, liquid, stuffToCheck, variables, classMethods);
+		result.push(
+			...condEffects.map(x => ({
+				...x,
+				condition: x.condition ? new OperatorNode("and", "and", [x.condition, mathCond]) : mathCond,
+			})),
+		);
+		const alt = ifStatement.alternative;
+		if (!alt) return result;
+		if (alt.type === "block") {
+			const elseEffects = analyzeBlock(alt, liquid, stuffToCheck, variables, classMethods);
+			result.push(
+				...elseEffects.map(x => ({
 					...x,
-					condition: x.condition ? new OperatorNode("and", "and", [x.condition, mathCond]) : mathCond,
+					condition: x.condition ? new OperatorNode("and", "and", [new OperatorNode("not", "not", [mathCond]), x.condition]) : mathCond,
 				})),
 			);
-		}
+		} else if (alt.type === "if_statement") {
+			const elseEffects = processIf(alt);
+			result.push(
+				...elseEffects.map(x => ({
+					...x,
+					condition: x.condition ? new OperatorNode("and", "and", [new OperatorNode("not", "not", [mathCond]), x.condition]) : mathCond,
+				})),
+			);
+        }
+        return result;
+	};
+	for (const exp of ifs) {
+		effects.push(...processIf(exp));
 	}
 
 	return effects;

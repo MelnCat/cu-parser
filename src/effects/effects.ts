@@ -43,7 +43,6 @@ export const summarizeEffects = (effects: RawEffect[], ml?: number | number[]): 
 			holder?: string | null;
 			amount?: MathNode;
 		}) => {
-            console.log(effect)
 			const type = match(operator)
 				.with("+=", "-=", () => "add" as const)
 				.with("*=", "/=", () => "multiply" as const)
@@ -215,3 +214,4 @@ export const matchLimb = (holder: string) => {
 	}
 	return +index;
 };
+
