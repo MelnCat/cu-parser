@@ -1,5 +1,5 @@
 <script lang="ts">
-	import "../../parser/item/parser";
+	import "../../parser/tile/parser";
 </script>
 
 <main>
